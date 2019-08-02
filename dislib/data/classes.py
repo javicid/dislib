@@ -43,7 +43,12 @@ class Dataset(object):
         self._sparse = sparse
 
     def __getitem__(self, item):
-        return self._subsets.__getitem__(item)
+        if isinstance(item, slice):
+            sliced = Dataset(self.n_features, self.sparse)
+            sliced.extend(self._subsets[item], self._sizes[item])
+            return sliced
+        else:
+            return self._subsets.__getitem__(item)
 
     def __len__(self):
         return len(self._subsets)
@@ -65,17 +70,37 @@ class Dataset(object):
         self._sizes.append(n_samples)
         self._reset_attributes()
 
-    def extend(self, subsets):
+    def extend(self, subsets, subset_sizes=None):
         """ Appends one or more Subset instances to this Dataset.
 
         Parameters
         ----------
         subsets : list
             A list of Subset instances.
+        subset_sizes : list, optional (default=None)
+            Number of samples in each subset.
         """
         self._subsets.extend(subsets)
-        self._sizes.extend([None] * len(subsets))
+        if subset_sizes is None:
+            subset_sizes = [None]*len(subsets)
+        self._sizes.extend(subset_sizes)
         self._reset_attributes()
+
+    def concatenate(self, other_dataset):
+        """ Concatenates another Dataset to this Dataset.
+
+        Parameters
+        ----------
+        other_dataset : Dataset
+            Dataset to be concatenated to self.
+
+        Returns
+        -------
+        self: Dataset
+            Dataset after concatenation.
+        """
+        self.extend(other_dataset._subsets, other_dataset._sizes)
+        return self
 
     def transpose(self, n_subsets=None):
         """ Transposes the Dataset.

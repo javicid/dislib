@@ -101,13 +101,13 @@ def as_grid(dataset, n_regions, dimensions=None, return_indices=False):
     return ret_value
 
 
-def shuffle(dataset_in, n_subsets_out=None, random_state=None):
+def shuffle(dataset, n_subsets_out=None, random_state=None):
     """ Randomly shuffles a Dataset.
 
     Parameters
     ----------
-    dataset_in : Dataset
-        Input Dataset.
+    dataset : Dataset
+        Input data.
     n_subsets_out : int, optional (default=None)
         Number of Subsets in the shuffled dataset. If None, it is the same as
         in the input Dataset.
@@ -117,7 +117,7 @@ def shuffle(dataset_in, n_subsets_out=None, random_state=None):
 
     Returns
     -------
-    shuffled_dataset : Dataset
+    shuffled_data : Dataset
         A new randomly shuffled Dataset with n_subsets_out balanced Subsets.
         If even splits are impossible, some Subsets contain 1 extra instance.
         These extra instances are evenly distributed to make k-fold splits
@@ -125,38 +125,38 @@ def shuffle(dataset_in, n_subsets_out=None, random_state=None):
     """
     np.random.seed(random_state)
     if n_subsets_out is None:
-        n_subsets_out = len(dataset_in)
-    sizes_in = dataset_in.subsets_sizes()
+        n_subsets_out = len(dataset)
+    sizes_in = dataset.subsets_sizes()
     n_samples = sum(sizes_in)
-    sizes_out = _balanced_distribution(n_samples, n_subsets_out)
+    sizes_out = _balanced_partition(n_samples, n_subsets_out)
 
     # Matrix of subsets of samples going from subset_in_i to subset_out_j
     all_parts = []
 
     # For each subset_in, get the parts going to each subset_out
-    for subset, size in zip(dataset_in, sizes_in):
+    for subset, size in zip(dataset, sizes_in):
         parts, part_sizes = _partition_subset(subset, size, sizes_out)
         all_parts.append(parts)
         sizes_out -= part_sizes
 
-    shuffled_dataset = Dataset(dataset_in.n_features, dataset_in.sparse)
+    shuffled_data = Dataset(dataset.n_features, dataset.sparse)
     for j in range(n_subsets_out):
         parts_to_j = [parts[j] for parts in all_parts]
         seed = np.random.randint(np.iinfo(np.int32).max)
-        shuffled_dataset.append(_merge_shuffle(seed, *parts_to_j))
+        shuffled_data.append(_merge_shuffle(seed, *parts_to_j))
         # Clean parts to save disk space
         for part in parts_to_j:
             compss_delete_object(part)
 
-    return shuffled_dataset
+    return shuffled_data
 
 
-def _balanced_distribution(n_elements, n_parts):
-    part_lengths = np.full((n_parts,), n_elements // n_parts)
+def _balanced_partition(n_elements, n_parts):
+    part_sizes = np.full((n_parts,), n_elements // n_parts)
     remainder = n_elements % n_parts
     spaced_remainder = np.linspace(0, n_parts - 1, remainder, dtype=int)
-    part_lengths[spaced_remainder] += 1
-    return part_lengths
+    part_sizes[spaced_remainder] += 1
+    return part_sizes
 
 
 def _generate_bins(min_, max_, dimensions, n_regions):
