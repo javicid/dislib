@@ -3,11 +3,12 @@ from pycompss.api.api import compss_wait_on
 from pycompss.api.parameter import INOUT
 from pycompss.api.task import task
 from scipy.sparse import csr_matrix
+from sklearn.base import BaseEstimator
 from sklearn.metrics import pairwise_distances
 from sklearn.metrics.pairwise import paired_distances
 
 
-class KMeans:
+class KMeans(BaseEstimator):
     """ Perform K-means clustering.
 
     Parameters
@@ -53,14 +54,12 @@ class KMeans:
 
     def __init__(self, n_clusters=8, max_iter=10, tol=1e-4, arity=50,
                  random_state=None, verbose=False):
-        self._n_clusters = n_clusters
-        self._max_iter = max_iter
-        self._tol = tol
-        self._random_state = random_state
-        self._arity = arity
-        self.centers = None
-        self.n_iter = 0
-        self._verbose = verbose
+        self.n_clusters = n_clusters
+        self.max_iter = max_iter
+        self.tol = tol
+        self.arity = arity
+        self.random_state = random_state
+        self.verbose = verbose
 
     def fit(self, dataset):
         """ Compute K-means clustering.
@@ -97,11 +96,14 @@ class KMeans:
             _predict(subset, self.centers)
 
     def _do_fit(self, dataset, set_labels):
+        self.centers = None
+        self.n_iter = 0
+
         n_features = dataset.n_features
         sparse = dataset.sparse
 
-        centers = _init_centers(n_features, sparse, self._n_clusters,
-                                self._random_state)
+        centers = _init_centers(n_features, sparse, self.n_clusters,
+                                self.random_state)
         self.centers = compss_wait_on(centers)
 
         old_centers = None
@@ -126,15 +128,15 @@ class KMeans:
 
         diff = np.sum(paired_distances(self.centers, old_centers))
 
-        if self._verbose:
+        if self.verbose:
             print("Iteration %s - Convergence crit. = %s" % (iteration, diff))
 
-        return diff < self._tol ** 2 or iteration >= self._max_iter
+        return diff < self.tol ** 2 or iteration >= self.max_iter
 
     def _recompute_centers(self, partials):
         while len(partials) > 1:
-            partials_subset = partials[:self._arity]
-            partials = partials[self._arity:]
+            partials_subset = partials[:self.arity]
+            partials = partials[self.arity:]
             partials.append(_merge(*partials_subset))
 
         partials = compss_wait_on(partials)

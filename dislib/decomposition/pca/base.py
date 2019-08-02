@@ -1,10 +1,11 @@
 from pycompss.api.task import task
 import numpy as np
+from sklearn.base import BaseEstimator
 
 from dislib.data import Dataset, Subset
 
 
-class PCA:
+class PCA(BaseEstimator):
     """ Principal component analysis (PCA) using the covariance method.
 
     Performs a full eigendecomposition of the covariance matrix.

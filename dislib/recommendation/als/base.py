@@ -4,12 +4,13 @@ import numpy as np
 from pycompss.api.api import compss_wait_on
 from pycompss.api.task import task
 from scipy import sparse
+from sklearn.base import BaseEstimator
 from sklearn.metrics import mean_squared_error
 
 from dislib.data import load_data
 
 
-class ALS(object):
+class ALS(BaseEstimator):
     """ Alternating Least Squares recommendation.
 
     Implements distributed alternating least squares recommendation based on
@@ -71,17 +72,14 @@ class ALS(object):
                  tol=1e-4, max_iter=100, arity=5,
                  check_convergence=True, verbose=False):
         # params
-        self._seed = random_state
-        self._n_f = n_f
-        self._lambda = lambda_
-        self._tol = tol
-        self._max_iter = max_iter
-        self._verbose = verbose
-        self._arity = arity
-        self._check_convergence = check_convergence
-        self.converged = False
-        self.users = None
-        self.items = None
+        self.random_state = random_state
+        self.n_f = n_f
+        self.lambda_ = lambda_
+        self.tol = tol
+        self.max_iter = max_iter
+        self.verbose = verbose
+        self.arity = arity
+        self.check_convergence = check_convergence
 
     def _update(self, r, x):
         """ Returns updated matrix M given U (if x=U), or matrix U given M
@@ -97,15 +95,15 @@ class ALS(object):
         """
         res = []
         for subset in r:
-            chunk_res = _update_chunk(subset, x, self._n_f, self._lambda)
+            chunk_res = _update_chunk(subset, x, self.n_f, self.lambda_)
             res.append(chunk_res)
 
         while len(res) > 1:
             q = []
             while len(res) > 0:
                 # we pop the future objects to merge
-                to_merge = res[:self._arity]
-                del res[:self._arity]
+                to_merge = res[:self.arity]
+                del res[:self.arity]
                 # if it's a single object, just add it to next step
                 aux = _merge(*to_merge) if len(to_merge) > 1 else to_merge[0]
                 q.append(aux)
@@ -114,10 +112,10 @@ class ALS(object):
         return res.pop()
 
     def _has_finished(self, i):
-        return i >= self._max_iter or self.converged
+        return i >= self.max_iter or self.converged
 
     def _has_converged(self, last_rmse, rmse):
-        return abs(last_rmse - rmse) < self._tol
+        return abs(last_rmse - rmse) < self.tol
 
     def _compute_train_rmse(self, d_u, U, I):
         rmses = [_get_rmse(sb, U, I) for sb in d_u._subsets]
@@ -138,24 +136,28 @@ class ALS(object):
             convergence.
         """
 
+        self.converged = False
+        self.users = None
+        self.items = None
+
         d_i = dataset
         d_u = d_i.transpose()
 
         n_m = d_u.n_features
 
-        if self._verbose:
+        if self.verbose:
             print("Item chunks: %s" % len(d_i))
             print("User chunks: %s" % len(d_u))
 
-        if self._seed:
-            np.random.seed(self._seed)
+        if self.random_state:
+            np.random.seed(self.random_state)
 
         if test is not None:
             test = load_data(x=test, subset_size=test.shape[0])
 
         self.converged = False
         users = None
-        items = np.random.rand(n_m, self._n_f)
+        items = np.random.rand(n_m, self.n_f)
 
         # Assign average rating as first feature
         average_ratings = d_i._apply(lambda row: np.mean(row.data),
@@ -172,18 +174,18 @@ class ALS(object):
             users = self._update(r=d_u, x=items)
             items = self._update(r=d_i, x=users)
 
-            if self._check_convergence:
+            if self.check_convergence:
                 if test is not None:
                     rmse = compss_wait_on(_get_rmse(test, users, items))
                     self.converged = self._has_converged(last_rmse, rmse)
-                    if self._verbose:
+                    if self.verbose:
                         print("Test RMSE: %.3f  [%s]" % (
                             rmse, abs(last_rmse - rmse)))
 
                 else:
                     rmse = self._compute_train_rmse(d_u, users, items)
                     self.converged = self._has_converged(last_rmse, rmse)
-                    if self._verbose:
+                    if self.verbose:
                         print("Train RMSE: %.3f  [%s]" % (
                             rmse, abs(last_rmse - rmse)))
             i += 1

@@ -2,12 +2,13 @@ import numpy as np
 from pycompss.api.api import compss_wait_on
 from pycompss.api.parameter import INOUT
 from pycompss.api.task import task
+from sklearn.base import BaseEstimator
 
 from dislib.cluster.dbscan.classes import Region
 from dislib.utils import as_grid
 
 
-class DBSCAN():
+class DBSCAN(BaseEstimator):
     """ Perform DBSCAN clustering.
 
     This algorithm requires data to be arranged in a multidimensional grid.
@@ -67,19 +68,12 @@ class DBSCAN():
 
     def __init__(self, eps=0.5, min_samples=5, arrange_data=True, n_regions=1,
                  dimensions=None, max_samples=None):
-        assert n_regions >= 1, \
-            "Number of regions must be greater or equal to 1."
-
-        self._eps = eps
-        self._min_samples = min_samples
-        self._n_regions = n_regions
-        self._dimensions_init = dimensions
-        self._dimensions = dimensions
-        self._arrange_data = arrange_data
-        self._subset_sizes = []
-        self._sorting = []
-        self._max_samples = max_samples
-        self._components = None
+        self.eps = eps
+        self.min_samples = min_samples
+        self.arrange_data = arrange_data
+        self.n_regions = n_regions
+        self.dimensions = dimensions
+        self.max_samples = max_samples
 
     def fit(self, dataset):
         """ Perform DBSCAN clustering on data and sets dataset.labels.
@@ -107,15 +101,25 @@ class DBSCAN():
         dataset : Dataset
             Input data.
         """
+
+        assert self.n_regions >= 1, \
+            "Number of regions must be greater or equal to 1."
+
+        self._subset_sizes = []
+        self._sorting = []
+        self._components = None
+
         n_features = dataset.n_features
         sparse = dataset.sparse
 
-        if self._dimensions_init is None:
+        self._dimensions = self.dimensions
+        if self.dimensions is None:
             self._dimensions = range(n_features)
 
         n_dims = len(self._dimensions)
 
-        if self._arrange_data:
+        self._n_regions = self.n_regions
+        if self.arrange_data:
             sorted_data, sorting_ind = as_grid(dataset, self._n_regions,
                                                self._dimensions, True)
         else:
@@ -130,10 +134,10 @@ class DBSCAN():
             subset = sorted_data[subset_idx]
             subset_size = sorted_data.subset_size(subset_idx)
             grid[region_id] = Region(region_id, subset, subset_size,
-                                     self._eps, sparse)
+                                     self.eps, sparse)
 
         # Set region neighbours
-        distances = np.ceil(self._eps / region_widths)
+        distances = np.ceil(self.eps / region_widths)
 
         for region_id in np.ndindex(grid.shape):
             self._add_neighbours(grid[region_id], grid, distances)
@@ -141,7 +145,7 @@ class DBSCAN():
         # Run dbscan on each region
         for region_id in np.ndindex(grid.shape):
             region = grid[region_id]
-            region.partial_dbscan(self._min_samples, self._max_samples)
+            region.partial_dbscan(self.min_samples, self.max_samples)
 
         # Compute label equivalences between different regions
         equiv_list = []
@@ -162,10 +166,10 @@ class DBSCAN():
             region.update_labels(self._components)
             final_labels.append(region.labels)
 
-            if not self._arrange_data:
+            if not self.arrange_data:
                 _set_labels(dataset[subset_idx], region.labels)
 
-        if self._arrange_data:
+        if self.arrange_data:
             self._sort_labels_back(dataset, final_labels, sorting_ind)
 
     def fit_predict(self, dataset):

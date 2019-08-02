@@ -5,6 +5,7 @@ import numpy as np
 from pycompss.api.api import compss_wait_on
 from pycompss.api.parameter import INOUT
 from pycompss.api.task import task
+from sklearn.base import BaseEstimator
 from sklearn.utils import check_random_state
 
 from dislib.classification.rf.decision_tree import DecisionTreeClassifier
@@ -12,7 +13,7 @@ from dislib.data import Dataset
 from .data import RfDataset, transform_to_rf_dataset
 
 
-class RandomForestClassifier:
+class RandomForestClassifier(BaseEstimator):
     """A distributed random forest classifier.
 
     Parameters
@@ -70,12 +71,12 @@ class RandomForestClassifier:
                  hard_vote=False,
                  random_state=None):
         self.n_estimators = n_estimators
-        self.try_features_init = try_features
+        self.try_features = try_features
         self.max_depth = max_depth
-        self.distr_depth_init = distr_depth
+        self.distr_depth = distr_depth
         self.sklearn_max = sklearn_max
         self.hard_vote = hard_vote
-        self.random_state = check_random_state(random_state)
+        self.random_state = random_state
 
     def fit(self, dataset):
         """Fits the RandomForestClassifier.
@@ -101,22 +102,23 @@ class RandomForestClassifier:
             dataset.validate_features_file()
 
         n_features = dataset.get_n_features()
-        self.try_features = _resolve_try_features(self.try_features_init,
-                                                  n_features)
+        try_features = _resolve_try_features(self.try_features, n_features)
+        random_state = check_random_state(self.random_state)
+
         self.classes = dataset.get_classes()
 
-        if self.distr_depth_init == 'auto':
+        if self.distr_depth == 'auto':
             dataset.n_samples = compss_wait_on(dataset.get_n_samples())
-            self.distr_depth = max(0, int(math.log10(dataset.n_samples)) - 4)
-            self.distr_depth = min(self.distr_depth, self.max_depth)
+            distr_depth = max(0, int(math.log10(dataset.n_samples)) - 4)
+            distr_depth = min(distr_depth, self.max_depth)
         else:
-            self.distr_depth = self.distr_depth_init
+            distr_depth = self.distr_depth
 
         for i in range(self.n_estimators):
-            tree = DecisionTreeClassifier(self.try_features, self.max_depth,
-                                          self.distr_depth, self.sklearn_max,
+            tree = DecisionTreeClassifier(try_features, self.max_depth,
+                                          distr_depth, self.sklearn_max,
                                           bootstrap=True,
-                                          random_state=self.random_state)
+                                          random_state=random_state)
             self.trees.append(tree)
 
         for tree in self.trees:

@@ -6,6 +6,7 @@ from pycompss.api.api import compss_wait_on, compss_delete_object
 from pycompss.api.parameter import INOUT
 from scipy import linalg
 from scipy.sparse import issparse
+from sklearn.base import BaseEstimator
 from sklearn.utils import validation
 from sklearn.utils.extmath import row_norms
 from sklearn.utils.fixes import logsumexp
@@ -429,7 +430,7 @@ def _assign_subset_predictions(subset, responsabilities):
     subset.labels = responsabilities.samples.argmax(axis=1)
 
 
-class GaussianMixture:
+class GaussianMixture(BaseEstimator):
     """Gaussian mixture model.
 
     Estimates the parameters of a Gaussian mixture model probability function
@@ -555,14 +556,14 @@ class GaussianMixture:
                  verbose=False, random_state=None):
 
         self.n_components = n_components
-        self._check_convergence = check_convergence
+        self.check_convergence = check_convergence
         self.covariance_type = covariance_type
         self.tol = tol
         self.reg_covar = reg_covar
         self.max_iter = max_iter
         self.init_params = init_params
-        self._arity = arity
-        self._verbose = verbose
+        self.arity = arity
+        self.verbose = verbose
         self.random_state = random_state
         self.weights_init = weights_init
         self.means_init = means_init
@@ -595,7 +596,7 @@ class GaussianMixture:
 
         self._initialize_parameters(dataset, random_state)
         self.lower_bound_ = -np.infty
-        if self._verbose:
+        if self.verbose:
             print("GaussianMixture EM algorithm start")
         for self.n_iter in range(1, self.max_iter + 1):
             prev_lower_bound = self.lower_bound_
@@ -605,11 +606,11 @@ class GaussianMixture:
             for resp_subset in resp:
                 compss_delete_object(resp_subset)
 
-            if self._check_convergence:
+            if self.check_convergence:
                 self.lower_bound_ = compss_wait_on(self.lower_bound_)
                 diff = abs(self.lower_bound_ - prev_lower_bound)
 
-                if self._verbose:
+                if self.verbose:
                     iter_msg_template = "Iteration %s - Convergence crit. = %s"
                     print(iter_msg_template % (self.n_iter, diff))
 
@@ -617,7 +618,7 @@ class GaussianMixture:
                     self.converged_ = True
                     break
 
-        if self._check_convergence and not self.converged_:
+        if self.check_convergence and not self.converged_:
             warnings.warn('The algorithm did not converge. '
                           'Try different init parameters, '
                           'or increase max_iter, tol '
@@ -708,9 +709,9 @@ class GaussianMixture:
                                           self.covariance_type)
 
     def _reduce_log_prob_norm(self, partials):
-        while len(partials) > self._arity:
-            partials_subset = partials[:self._arity]
-            partials = partials[self._arity:]
+        while len(partials) > self.arity:
+            partials_subset = partials[:self.arity]
+            partials = partials[self.arity:]
             partials.append(_sum_log_prob_norm(*partials_subset))
         return _finalize_sum_log_prob_norm(*partials)
 
@@ -731,7 +732,7 @@ class GaussianMixture:
 
         cov, p_c = _estimate_covariances(dataset, resp, nk, means,
                                          self.reg_covar, self.covariance_type,
-                                         self._arity)
+                                         self.arity)
 
         self.covariances_ = cov
         self.precisions_cholesky_ = p_c
@@ -760,7 +761,7 @@ class GaussianMixture:
         for ss, resp_ss in zip(dataset, resp):
             ss_params = _estimate_parameters_subset(ss, resp_ss)
             subsets_params.append(ss_params)
-        return _reduce_estimate_parameters(subsets_params, self._arity)
+        return _reduce_estimate_parameters(subsets_params, self.arity)
 
     def _check_initial_parameters(self):
         """Check values of the basic parameters."""
@@ -886,11 +887,11 @@ class GaussianMixture:
             n_components = self.n_components
             resp = Dataset(n_components)
             if self.init_params == 'kmeans':
-                if self._verbose:
+                if self.verbose:
                     print("KMeans initialization start")
                 seed = random_state.randint(0, int(1e8))
                 kmeans = KMeans(n_clusters=n_components, random_state=seed,
-                                verbose=self._verbose)
+                                verbose=self.verbose)
                 kmeans.fit_predict(dataset)
                 self.kmeans = kmeans
                 for labeled_subset in dataset:
@@ -917,7 +918,7 @@ class GaussianMixture:
                 cov, p_c = _estimate_covariances(dataset, resp, nk,
                                                  self.means_, self.reg_covar,
                                                  self.covariance_type,
-                                                 self._arity)
+                                                 self.arity)
                 self.covariances_ = cov
                 self.precisions_cholesky_ = p_c
 

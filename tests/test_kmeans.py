@@ -22,8 +22,8 @@ class KMeansTest(unittest.TestCase):
                     arity=arity, random_state=seed)
 
         expected = (n_clusters, max_iter, tol, seed, arity)
-        real = (km._n_clusters, km._max_iter, km._tol, km._random_state,
-                km._arity)
+        real = (km.n_clusters, km.max_iter, km.tol, km.random_state,
+                km.arity)
         self.assertEqual(expected, real)
 
     def test_fit(self):

@@ -2,9 +2,10 @@ import numpy as np
 from pycompss.api.parameter import INOUT
 
 from pycompss.api.task import task
+from sklearn.base import BaseEstimator
 
 
-class LinearRegression:
+class LinearRegression(BaseEstimator):
     """
     Simple linear regression using ordinary least squares.
 
@@ -47,7 +48,7 @@ class LinearRegression:
     """
 
     def __init__(self, arity=50):
-        self._arity = arity
+        self.arity = arity
 
     def fit(self, dataset):
         """
@@ -58,8 +59,8 @@ class LinearRegression:
         dataset : Dataset
             Training dataset: x.shape (n_samples, 1), y.shape (n_samples, ).
         """
-        mean_x, mean_y = _variable_means(dataset, self._arity)
-        beta, alpha = _compute_regression(dataset, mean_x, mean_y, self._arity)
+        mean_x, mean_y = _variable_means(dataset, self.arity)
+        beta, alpha = _compute_regression(dataset, mean_x, mean_y, self.arity)
         self.coef_ = beta
         self.intercept_ = alpha
 
