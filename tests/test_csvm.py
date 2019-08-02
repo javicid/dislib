@@ -1,6 +1,7 @@
 import unittest
 
 import numpy as np
+from pycompss.api.api import compss_wait_on
 
 from dislib.classification import CascadeSVM
 from dislib.data import Dataset
@@ -142,7 +143,7 @@ class CSVMTest(unittest.TestCase):
         # accuracy
         test_set = load_data(x=np.array([p1, p2, p3, p4]), subset_size=2,
                              y=np.array([0, 0, 1, 1]))
-        accuracy = csvm.score(test_set)
+        accuracy = compss_wait_on(csvm.score(test_set))
 
         self.assertEqual(accuracy, 1.0)
 

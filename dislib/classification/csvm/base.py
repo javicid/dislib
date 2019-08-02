@@ -181,7 +181,8 @@ class CascadeSVM(object):
 
         Returns
         -------
-        score : Mean accuracy of self.predict(dataset) wrt. dataset.labels.
+        score : float (not synchronized)
+            Mean accuracy of self.predict(dataset) wrt. dataset.labels.
         """
         assert (self._clf is not None or self._feedback is not None), \
             "Model has not been initialized. Call fit() first."
@@ -191,7 +192,7 @@ class CascadeSVM(object):
         for subset in dataset:
             partial_scores.append(_score(subset, self._clf))
 
-        score = compss_wait_on(_merge_scores(*partial_scores))
+        score = _merge_scores(*partial_scores)
 
         return score
 

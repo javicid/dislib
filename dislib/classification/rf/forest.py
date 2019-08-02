@@ -196,7 +196,7 @@ class RandomForestClassifier:
 
         Returns
         -------
-        score : float
+        score : float (not synchronized)
             Fraction of correctly classified samples.
 
         """
@@ -219,7 +219,7 @@ class RandomForestClassifier:
                                                 *tree_predictions)
                 partial_scores.append(subset_score)
 
-        score = compss_wait_on(_merge_scores(*partial_scores))
+        score = _merge_scores(*partial_scores)
 
         return score
 

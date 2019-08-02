@@ -33,7 +33,7 @@ class RFTest(unittest.TestCase):
         rf = RandomForestClassifier(random_state=0)
 
         rf.fit(train_ds)
-        accuracy = rf.score(test_ds)
+        accuracy = compss_wait_on(rf.score(test_ds))
         self.assertGreater(accuracy, 0.7)
 
     def test_make_classification_predict_and_distr_depth(self):
@@ -196,7 +196,7 @@ class RFTest(unittest.TestCase):
                                     hard_vote=True)
 
         rf.fit(train_ds)
-        accuracy = rf.score(test_ds)
+        accuracy = compss_wait_on(rf.score(test_ds))
         self.assertGreater(accuracy, 0.7)
 
     def test_iris(self):
@@ -207,7 +207,7 @@ class RFTest(unittest.TestCase):
         rf = RandomForestClassifier(n_estimators=1, max_depth=1,
                                     random_state=0)
         rf.fit(ds_fit)
-        accuracy = rf.score(ds_validate)
+        accuracy = compss_wait_on(rf.score(ds_validate))
 
         # Accuracy should be <= 2/3 for any seed, often exactly equal.
         self.assertAlmostEqual(accuracy, 2/3)
