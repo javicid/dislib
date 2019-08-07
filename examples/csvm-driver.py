@@ -3,7 +3,7 @@ import csv
 import os
 import time
 
-from pycompss.api.api import barrier
+from pycompss.api.api import barrier, compss_wait_on
 
 from dislib.classification import CascadeSVM
 from dislib.data import (load_libsvm_file, load_libsvm_files, load_txt_file,
@@ -129,7 +129,7 @@ def main():
                                       subset_size=args.part_size,
                                       label_col="last")
 
-        out.append(csvm.score(test_data))
+        out.append(compss_wait_on(csvm.score(test_data)))
 
     if args.output_file:
         with open(args.output_file, "ab") as f:

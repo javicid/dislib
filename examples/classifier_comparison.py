@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import ListedColormap
+from pycompss.api.api import compss_wait_on
 from sklearn.datasets import make_moons, make_circles, make_classification
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -31,22 +32,42 @@ def main():
                 linearly_separable
                 ]
 
-    plt.figure(figsize=(27, 9))
-    i = 1
-    # iterate over datasets
+    preprocessed_data = dict()
+    scores = dict()
+    mesh_accuracy_ds = dict()
     for ds_cnt, ds in enumerate(datasets):
         # preprocess dataset, split into training and test part
         x, y = ds
         x = StandardScaler().fit_transform(x)
         x_train, x_test, y_train, y_test = \
             train_test_split(x, y, test_size=.4, random_state=42)
-        data = load_data(x=x_train, y=y_train, subset_size=20)
-        test_data = load_data(x=x_test, y=y_test, subset_size=20)
-
         x_min, x_max = x[:, 0].min() - .5, x[:, 0].max() + .5
         y_min, y_max = x[:, 1].min() - .5, x[:, 1].max() + .5
         xx, yy = np.meshgrid(np.arange(x_min, x_max, h),
                              np.arange(y_min, y_max, h))
+        preprocessed_data[ds_cnt] = x, x_train, x_test, y_train, y_test, xx, yy
+
+        data = load_data(x=x_train, y=y_train, subset_size=20)
+        test_data = load_data(x=x_test, y=y_test, subset_size=20)
+
+        for name, clf in zip(names, classifiers):
+            clf.fit(data)
+            scores[(ds_cnt, name)] = clf.score(test_data)
+
+            mesh = np.c_[xx.ravel(), yy.ravel()]
+            mesh_dataset = load_data(x=mesh, subset_size=mesh.shape[0])
+
+            if hasattr(clf, "decision_function"):
+                clf.decision_function(mesh_dataset)
+            else:
+                clf.predict_proba(mesh_dataset)
+            mesh_accuracy_ds[(ds_cnt, name)] = mesh_dataset
+
+    # Synchronize while plotting the results
+    plt.figure(figsize=(27, 9))
+    i = 1
+    for ds_cnt, ds in enumerate(datasets):
+        x, x_train, x_test, y_train, y_test, xx, yy = preprocessed_data[ds_cnt]
 
         # just plot the dataset first
         cm = plt.cm.RdBu
@@ -71,19 +92,12 @@ def main():
         for name, clf in zip(names, classifiers):
             ax = plt.subplot(len(datasets), len(classifiers) + 1, i)
 
-            clf.fit(data)
-            score = clf.score(test_data)
-
-            # Plot the decision boundary. For that, we will assign a color to
-            # each point in the mesh [x_min, x_max]x[y_min, y_max].
-            mesh = np.c_[xx.ravel(), yy.ravel()]
-            mesh_dataset = load_data(x=mesh, subset_size=mesh.shape[0])
+            score = compss_wait_on(scores[(ds_cnt, name)])
+            mesh_dataset = mesh_accuracy_ds[(ds_cnt, name)]
 
             if hasattr(clf, "decision_function"):
-                clf.decision_function(mesh_dataset)
                 Z = mesh_dataset.labels
             else:
-                clf.predict_proba(mesh_dataset)
                 Z = mesh_dataset.labels[:, 1]
 
             # Put the result into a color plot

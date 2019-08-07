@@ -2,6 +2,7 @@ from random import shuffle
 
 import numpy as np
 import pandas as pd
+from pycompss.api.api import compss_wait_on
 from sklearn.datasets import load_iris
 
 from dislib.classification import RandomForestClassifier
@@ -32,7 +33,7 @@ def main():
     y_pred = test_ds.labels
 
     test_ds = load_data(x[test_idx], 10, y[test_idx])
-    score = forest.score(test_ds)
+    score = compss_wait_on(forest.score(test_ds))
 
     # Put results in fancy dataframe and print the accuracy
     df = pd.DataFrame(data=list(zip(y[test_idx], y_pred)),

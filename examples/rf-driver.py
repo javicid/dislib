@@ -3,7 +3,7 @@ import os
 import time
 
 import numpy as np
-from pycompss.api.api import barrier
+from pycompss.api.api import barrier, compss_wait_on
 
 from dislib.classification import RandomForestClassifier
 from dislib.data import (load_libsvm_file, load_libsvm_files, load_txt_file,
@@ -98,7 +98,7 @@ def main():
                                       subset_size=args.part_size,
                                       label_col="last")
 
-        out.append(forest.score(test_data))
+        out.append(compss_wait_on(forest.score(test_data)))
 
     print(out)
 
