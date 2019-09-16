@@ -2,11 +2,30 @@ import numbers
 import time
 
 import numpy as np
+from pycompss.api.compss import compss
+from pycompss.api.parameter import FILE_IN, FILE_OUT
+from pycompss.api.task import task
+
+
+@compss(runcompss="runcompss", flags="-d --python_interpreter=python3",
+        working_dir='/home/bscuser/.COMPSs/prova_dins',
+        app_name="/home/bscuser/git/dislib/examples/nested_app.py")
+@task(params=FILE_IN, out=FILE_OUT, returns=int)
+def nested_fit_and_score(out, estimator, train_ds, validation_ds, scorer,
+                         parameters, fit_params, nested):
+    pass
 
 
 def fit_and_score(estimator, train_ds, validation_ds, scorer, parameters,
-                  fit_params):
-
+                  fit_params, nested, idx):
+    if nested:
+        result = 'result' + str(idx) + '.out'
+        ret_code = nested_fit_and_score(estimator, train_ds, validation_ds,
+                                        scorer, parameters, fit_params, result)
+        if ret_code != 0:  # Return code should be 0
+            raise RuntimeError(
+                '@compss task failed with return code ' + str(ret_code))
+        return result
     if parameters is not None:
         estimator.set_params(**parameters)
     t0_fit = time.time()

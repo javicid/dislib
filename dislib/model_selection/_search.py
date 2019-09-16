@@ -4,7 +4,8 @@ from collections.abc import Sequence
 from functools import partial
 from itertools import product
 
-from pycompss.api.api import compss_wait_on
+from pycompss.api.api import compss_wait_on, get_file
+from pycompss.util.serializer import deserialize_from_file
 from scipy.stats import rankdata
 from sklearn import clone
 from sklearn.model_selection import ParameterGrid
@@ -19,11 +20,13 @@ from ._validation import check_scorer, fit_and_score, validate_score, \
 class BaseSearchCV(ABC):
     """Abstract base class for hyper parameter search with cross-validation."""
 
-    def __init__(self, estimator, scoring=None, cv=None, refit=True):
+    def __init__(self, estimator, scoring=None, cv=None, refit=True,
+                 nested=False):
         self.estimator = estimator
         self.scoring = scoring
         self.cv = cv
         self.refit = refit
+        self.nested = nested
 
     @abstractmethod
     def _run_search(self, evaluate_candidates):
@@ -43,37 +46,37 @@ class BaseSearchCV(ABC):
         """
         estimator = self.estimator
         cv = infer_cv(self.cv)
-
         scorers, refit_metric = self._infer_scorers()
-
         base_estimator = clone(estimator)
-
-        n_splits = None
+        splits = list(cv.split(dataset))
+        n_splits = cv.get_n_splits()
         all_candidate_params = []
         all_out = []
 
         def evaluate_candidates(candidate_params):
             """Evaluate some parameters"""
-            candidate_params = list(candidate_params)
 
+            candidate_params = list(candidate_params)
             out = [fit_and_score(clone(base_estimator), train, validation,
                                  scorer=scorers, parameters=parameters,
-                                 fit_params=fit_params)
-                   for parameters, (train, validation)
-                   in product(candidate_params, cv.split(dataset))]
-
-            nonlocal n_splits
-            n_splits = cv.get_n_splits()
+                                 fit_params=fit_params,
+                                 nested=self.nested, idx=i)
+                   for idx, (parameters, (train, validation))
+                   in enumerate(product(candidate_params, splits))]
 
             all_candidate_params.extend(candidate_params)
             all_out.extend(out)
 
         self._run_search(evaluate_candidates)
 
-        for params_result in all_out:
+        for i, params_result in enumerate(all_out):
+            if self.nested:
+                get_file(params_result)
+                all_out[i] = deserialize_from_file(params_result)
             scores = params_result[0]
             for scorer_name, score in scores.items():
-                score = compss_wait_on(score)
+                if not self.nested:
+                    score = compss_wait_on(score)
                 scores[scorer_name] = validate_score(score, scorer_name)
 
         results = self._format_results(all_candidate_params, scorers,
