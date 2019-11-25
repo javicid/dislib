@@ -6,7 +6,7 @@ import pickle
 
 from pycompss.api.task import task
 from pycompss.api.api import compss_wait_on
-from pycompss.util.serializer import deserialize_from_file
+from pycompss.util.serialization.serializer import deserialize_from_file
 
 
 @task(returns=1)
@@ -26,7 +26,6 @@ def main(file_out, cll, clf_path, params):
     clf = deserialize_from_file(clf_path)
     print('lali')
     print(clf_path)
-    print('lali')
     print('lali')
     print(cll)
     print(dir(cll))
