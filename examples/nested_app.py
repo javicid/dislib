@@ -19,7 +19,7 @@ def nested_task(clf, params):
     return 5
 
 
-def main(file_out, clf_path, params, cll):
+def main(file_out, clf_path, params, *cll):
     with open('/home/bscuser/git/dislib/examples/compss_task_dir.out', 'w') as file:
         file.write(str(os.getcwd()))
 
@@ -31,8 +31,12 @@ def main(file_out, clf_path, params, cll):
     print(dir(cll))
     print('lali')
     blocks = []
-    # for block_file in cll:
-    #     blocks.append(deserialize_from_file(block_file))
+    for block_file in cll:
+        blocks.append(deserialize_from_file(block_file))
+    for b in blocks:
+        with open('/home/bscuser/git/dislib/examples/compss_task_dir.out',
+                  'a') as file:
+            file.write(str(b))
     params = deserialize_from_file(params)
     nested_return = compss_wait_on(nested_task(clf, params))
 

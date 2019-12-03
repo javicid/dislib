@@ -22,7 +22,7 @@ def create_collection(parts):
         working_dir='/home/bscuser/.COMPSs/prova_dins',
         app_name="/home/bscuser/git/dislib/examples/nested_app.py")
 @task(file_out=FILE_OUT, returns=int)
-def nested_fit_and_score(file_out, clf, params, cll):
+def nested_fit_and_score(file_out, clf, params, *cll):
     pass
 
 
@@ -32,12 +32,11 @@ def main():
     clf = create_clf()
     file_out = 'out.txt'
     cll = compss_wait_on(cll)
-    cll = [{1}, {2}, {3}]
     print(cll)
     params = {'max_depth': 2}
     ret = nested_fit_and_score(file_out, clf,
                                params,
-                               cll)
+                               *cll)
     print(compss_wait_on(file_out))
     ret = compss_wait_on(ret)
     if ret != 0:  # Return code should be 0
